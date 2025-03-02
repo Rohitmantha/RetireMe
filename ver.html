@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retirement Lump Sum Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .container {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto;
+            transition: background-color 0.3s;
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 18px;
+            text-align: left;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        .error {
+            color: red;
+            text-align: center;
+            font-size: 16px;
+        }
+        .formula-box {
+            background: #eef5ff;
+            padding: 15px;
+            border-left: 5px solid #4CAF50;
+            margin-top: 20px;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+        }
+        .formula-box p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .formula-box .formula {
+            font-size: 22px;
+            font-weight: bold;
+            color: #d63384;
+            text-align: center;
+            display: block;
+            margin: 10px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .dark-mode {
+            background-color: #222;
+            color: #fff;
+        }
+        .dark-mode .container {
+            background-color: #333;
+        }
+        .dark-mode input[type="text"] {
+            background-color: #555;
+            color: white;
+            border: 1px solid #777;
+        }
+        .dark-mode .formula-box {
+            background: #444;
+            border-left: 5px solid #d63384;
+        }
+        .toggle-btn {
+            display: block;
+            margin: 10px auto;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle-btn" onclick="toggleDarkMode()">🌙 Switch to Dark Mode</button>
+    <div class="container">
+        <h1>Retirement Lump Sum Calculator</h1>
+        <div id="error-message" class="error"></div>
+        <form id="calculator-form">
+            <label for="w0">Initial Yearly Withdrawal (₹):</label>
+            <input type="text" id="w0" name="w0" required>
+            <label for="r">Annual Return Rate (%):</label>
+            <input type="text" id="r" name="r" required>
+            <label for="i">Withdrawal Increase Rate (%):</label>
+            <input type="text" id="i" name="i" required>
+            <label for="years">Years Until Retirement:</label>
+            <input type="text" id="years" name="years" required>
+            <button type="submit">Calculate</button>
+        </form>
+        <div id="formula-display" class="formula-box"></div>
+        <div id="specific-result" class="result"></div>
+        <div id="results" class="result"></div>
+        <canvas id="lumpSumChart" width="400" height="200"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let currentChart = null;  // Variable to hold the current chart instance
+
+        // Function to toggle between Dark and Light mode
+        function toggleDarkMode() {
+            const body = document.body;
+            const toggleButton = document.querySelector('.toggle-btn');
+            body.classList.toggle("dark-mode");
+
+            // Change the button text and emoji based on current mode
+            if (body.classList.contains("dark-mode")) {
+                toggleButton.textContent = "🌞 Switch to Light Mode";
+            } else {
+                toggleButton.textContent = "🌙 Switch to Dark Mode";
+            }
+        }
+
+        // Function to format numbers in Indian style
+        const formatIndianCurrency = (value) => {
+            return new Intl.NumberFormat('en-IN').format(value);
+        };
+
+        // Function to handle automatic formatting in Indian style for input fields
+        function formatInput(event) {
+            let input = event.target;
+            let value = input.value.replace(/,/g, ''); // Remove commas
+            if (!value) return;  // If input is empty, do nothing
+
+            // Format the value in Indian style and update the input field
+            input.value = formatIndianCurrency(value);
+        }
+
+        // Attach the formatInput function to the input fields for real-time formatting
+        document.querySelectorAll('input[type="text"]').forEach(input => {
+            input.addEventListener('input', formatInput);
+        });
+
+        // Function to display the formula beautifully
+        function displayFormula(w0, r, i) {
+            let formulaBox = document.getElementById('formula-display');
+            if (r === i) {
+                formulaBox.innerHTML = `
+                    <strong>Formula Used:</strong>
+                    <p class="formula">L = W₀ × n</p>
+                    <p><strong>Explanation:</strong> Since the annual return rate is equal to the withdrawal increase rate, the total amount required is simply the sum of yearly withdrawals.</p>
+                `;
+            } else {
+                formulaBox.innerHTML = `
+                    <strong>Formula Used:</strong>
+                    <p class="formula">L = W₀ × (1 - qⁿ) / (1 - q)</p>
+                    <p><strong>Where:</strong></p>
+                    <ul>
+                        <li><strong>L</strong> = Required Lump Sum</li>
+                        <li><strong>W₀</strong> = Initial Yearly Withdrawal</li>
+                        <li><strong>q</strong> = (1 + i/100) / (1 + r/100)</li>
+                        <li><strong>r</strong> = Annual Return Rate (%)</li>
+                        <li><strong>i</strong> = Annual Withdrawal Increase Rate (%)</li>
+                        <li><strong>n</strong> = Number of Years</li>
+                    </ul>
+                `;
+            }
+        }
+
+        document.getElementById('calculator-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('specific-result').innerHTML = '';
+            document.getElementById('error-message').innerHTML = '';
+
+            // Destroy the existing chart if present
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            try {
+                let w0 = parseFloat(document.getElementById('w0').value.replace(/,/g, ''));
+                let r = parseFloat(document.getElementById('r').value.replace(/,/g, ''));
+                let i = parseFloat(document.getElementById('i').value.replace(/,/g, ''));
+                let yearsUntilRetirement = parseInt(document.getElementById('years').value);
+
+                if (isNaN(w0) || isNaN(r) || isNaN(i) || isNaN(yearsUntilRetirement) || w0 <= 0 || yearsUntilRetirement <= 0) {
+                    throw new Error("Please enter valid numbers greater than 0.");
+                }
+
+                // Display the formula
+                displayFormula(w0, r, i);
+
+                let q = (1 + i / 100) / (1 + r / 100);
+                let specificLumpSum = (q === 1) ? w0 * yearsUntilRetirement : w0 * (Math.pow(q, yearsUntilRetirement) - 1) / (q - 1);
+
+                document.getElementById('specific-result').innerHTML = `
+                    <h2>Required Lump Sum for ${yearsUntilRetirement} Years: <span style="font-weight: normal;">₹${formatIndianCurrency(specificLumpSum.toFixed(2))}</span></h2>
+                `;
+
+                let years = [30, 40, 50, 60, 70, 80, 90];
+                let results = '<h2>Required Lump Sum for Generalised Years:</h2>';
+                results += '<table><tr><th>Years</th><th>Required Lump Sum (₹)</th></tr>';
+                let lumpSums = []; // To store the lump sums for plotting
+
+                years.forEach(n => {
+                    let lumpSum = (q === 1) ? w0 * n : w0 * (Math.pow(q, n) - 1) / (q - 1);
+                    results += `<tr><td>${n}</td><td>₹${formatIndianCurrency(lumpSum.toFixed(2))}</td></tr>`;
+                    lumpSums.push({ year: n, lumpSum: lumpSum });
+                });
+
+                results += '</table>';
+                document.getElementById('results').innerHTML = results;
+
+                // Now plot the graph using Chart.js
+                const ctx = document.getElementById('lumpSumChart').getContext('2d');
+                currentChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: lumpSums.map(item => item.year),  // Years on X-axis
+                        datasets: [{
+                            label: 'Required Lump Sum (₹)',
+                            data: lumpSums.map(item => item.lumpSum),  // Lump sums on Y-axis
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Required Lump Sum for Various Years'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(tooltipItem) {
+                                        return '₹' + formatIndianCurrency(tooltipItem.raw.toFixed(2));
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Years'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Lump Sum (₹)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '₹' + formatIndianCurrency(value);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+            } catch (error) {
+                document.getElementById('error-message').innerHTML = error.message;
+            }
+        });
+    </script>
+</body>
+</html>
